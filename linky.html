@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="description" content="あとで読むリンクをストックするアプリ">
+<meta name="theme-color" content="#7c73ff">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/linky/manifest.json">
+<link rel="icon" type="image/png" href="/linky/icon-192.png">
+<link rel="apple-touch-icon" href="/linky/icon-192.png">
+<meta charset="UTF-8">
+
+
+
+
+
+
+
+
+
+<title>Linky</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f0f10;
+    --surface: #151518;
+    --surface2: #1a1a1e;
+    --border: #222226;
+    --text: #e8e8e8;
+    --muted: #555;
+    --faint: #2a2a2e;
+    --accent: #7c73ff;
+    --accent-bg: rgba(124,115,255,0.15);
+    --green: #84c4a0;
+    --green-bg: rgba(132,196,160,0.15);
+    --gold: #f5c842;
+    --gold-bg: rgba(245,200,66,0.12);
+    --red: #e06c6c;
+    --blue: #6c9fe0;
+    --font: 'Noto Sans JP', 'Hiragino Kaku Gothic ProN', sans-serif;
+  }
+
+  html, body {
+    background: var(--bg); color: var(--text); font-family: var(--font);
+    min-height: 100vh; -webkit-tap-highlight-color: transparent; overscroll-behavior: none;
+  }
+
+  .view { display: none; }
+  .view.active { display: block; }
+  #app { max-width: 480px; margin: 0 auto; padding-bottom: 90px; }
+
+  /* HEADER */
+  .header {
+    position: sticky; top: 0; z-index: 100;
+    background: var(--bg); border-bottom: 1px solid var(--border);
+    padding: 14px 16px 12px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .app-title { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; }
+  .app-title span { color: var(--text); }
+  .icon-btn {
+    background: none; border: none; color: #444; cursor: pointer;
+    font-size: 20px; padding: 4px 6px; line-height: 1;
+    font-family: var(--font); transition: color 0.12s; border-radius: 8px;
+  }
+  .icon-btn:active { color: var(--text); background: var(--surface2); }
+  .add-fab {
+    width: 34px; height: 34px; border-radius: 50%;
+    background: var(--accent); border: none; color: #fff;
+    font-size: 22px; line-height: 1; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font); font-weight: 400;
+    transition: opacity 0.15s, transform 0.15s;
+    flex-shrink: 0;
+  }
+  .add-fab:active { opacity: 0.8; transform: scale(0.92); }
+  .back-btn {
+    background: none; border: none; color: var(--muted); cursor: pointer;
+    font-size: 13px; font-family: var(--font); padding: 4px 2px;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .back-btn:active { color: var(--text); }
+
+  /* NOW SECTION */
+  .now-wrap { padding: 20px 16px 0; animation: fadeUp 0.3s ease both; }
+  .now-label {
+    font-size: 10px; font-weight: 700; color: var(--accent);
+    letter-spacing: 0.16em; text-transform: uppercase; margin-bottom: 12px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .now-dot {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity:1; transform:scale(1); }
+    50%      { opacity:0.4; transform:scale(0.7); }
+  }
+  @keyframes fadeUp {
+    from { opacity:0; transform:translateY(10px); }
+    to   { opacity:1; transform:translateY(0); }
+  }
+
+  .now-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 18px; overflow: hidden; position: relative;
+  }
+  .now-card::before {
+    content:''; position:absolute; top:0; left:0; right:0; height:2px;
+    background: linear-gradient(90deg, var(--accent), #a78bfa);
+  }
+  .now-card-body { padding: 18px 18px 14px; }
+  .now-type-tag {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 6px;
+    letter-spacing: 0.05em; margin-bottom: 12px;
+  }
+  .now-title { font-size: 17px; font-weight: 700; line-height: 1.5; color: var(--text); margin-bottom: 8px; }
+  .now-domain { font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+  .now-age { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 5px; }
+  .now-age-num { color: var(--gold); font-weight: 700; }
+  .now-note {
+    padding: 12px 18px; border-top: 1px solid var(--surface2);
+    font-size: 13px; color: var(--muted); line-height: 1.6; font-style: italic;
+  }
+  .now-actions { display: flex; border-top: 1px solid var(--border); gap: 8px; padding: 10px 12px; }
+  .now-action-btn {
+    flex: 1; padding: 11px 10px; border: none;
+    font-family: var(--font); font-size: 13px; font-weight: 700; cursor: pointer;
+    transition: opacity 0.12s; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .now-action-btn:active { opacity: 0.75; }
+  .now-action-btn.primary { color: var(--accent); background: var(--accent-bg); }
+  .now-action-btn.done-btn { color: var(--green); background: var(--green-bg); }
+  .now-action-btn.detail-btn { color: var(--muted); background: var(--surface2); flex: 0 0 44px; }
+
+  .now-empty {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 18px; padding: 40px 20px; text-align: center; color: var(--muted);
+  }
+  .now-empty-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.3; }
+  .now-empty-text { font-size: 14px; margin-bottom: 4px; }
+  .now-empty-sub { font-size: 12px; color: #333; }
+
+  /* QUEUE PREVIEW */
+  .queue-wrap { padding: 20px 16px 0; animation: fadeUp 0.3s 0.08s ease both; }
+  .queue-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .queue-label {
+    font-size: 10px; font-weight: 700; color: var(--muted);
+    letter-spacing: 0.12em; text-transform: uppercase;
+    display: flex; align-items: center; gap: 7px;
+  }
+  .count-badge {
+    background: var(--faint); color: var(--text); border-radius: 20px;
+    font-size: 10px; font-weight: 700; padding: 1px 8px; letter-spacing: 0;
+  }
+  .see-all-btn {
+    background: none; border: none; color: var(--accent);
+    font-size: 12px; font-weight: 700; cursor: pointer; font-family: var(--font);
+  }
+  .card { background: var(--surface); border-radius: 14px; border: 1px solid var(--border); overflow: hidden; }
+
+  .queue-mini-item {
+    display: flex; align-items: center; padding: 11px 14px;
+    border-bottom: 1px solid var(--surface2); gap: 10px;
+    cursor: pointer; transition: background 0.12s;
+  }
+  .queue-mini-item:last-child { border-bottom: none; }
+  .queue-mini-item:active { background: var(--surface2); }
+  .mini-type-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .mini-title { flex:1; font-size:13px; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .mini-age { font-size:10px; color:#3a3a3e; flex-shrink:0; }
+  .set-now-btn {
+    background: none; border: 1px solid var(--border); color: var(--muted);
+    border-radius: 6px; font-size: 10px; font-weight: 700; padding: 3px 7px;
+    cursor: pointer; font-family: var(--font); flex-shrink: 0; transition: all 0.12s;
+  }
+  .set-now-btn:active { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); }
+
+  .add-row-btn {
+    display: flex; align-items: center; gap: 8px; padding: 11px 14px;
+    color: var(--muted); font-size: 13px; cursor: pointer;
+    background: none; border: none; width: 100%; font-family: var(--font);
+    border-top: 1px solid var(--surface2);
+  }
+  .add-plus { color: var(--accent); font-size: 17px; line-height: 1; }
+
+  /* DONE SIMPLE ROW */
+  .done-simple-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 16px; margin: 12px 16px 0;
+    border: 1px solid var(--border); border-radius: 12px;
+    cursor: pointer; transition: background 0.12s;
+  }
+  .done-simple-row:active { background: var(--surface2); }
+
+  /* QUEUE / DONE VIEW */
+  .sub-header {
+    position: sticky; top: 0; z-index: 100;
+    background: var(--bg); border-bottom: 1px solid var(--border);
+    padding: 14px 16px 12px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .view-title { font-size: 16px; font-weight: 700; flex: 1; }
+
+  .filter-row { display: flex; gap: 6px; padding: 12px 16px 8px; overflow-x: auto; scrollbar-width: none; }
+  .filter-row::-webkit-scrollbar { display: none; }
+  .filter-chip {
+    padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border);
+    background: none; color: var(--muted); font-size: 11px; font-weight: 600;
+    cursor: pointer; font-family: var(--font); white-space: nowrap; transition: all 0.15s; flex-shrink: 0;
+  }
+  .filter-chip.active { border-color: var(--accent); background: var(--accent-bg); color: var(--accent); }
+
+  .list-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; margin: 0 16px; }
+  .link-item {
+    display: flex; align-items: flex-start; padding: 13px 14px;
+    border-bottom: 1px solid var(--surface2); gap: 11px; cursor: pointer; transition: background 0.12s;
+  }
+  .link-item:last-child { border-bottom: none; }
+  .link-item:active { background: var(--surface2); }
+  .link-item.is-now { background: var(--accent-bg); }
+  .type-dot-lg { width:10px; height:10px; border-radius:50%; flex-shrink:0; margin-top:4px; }
+  .link-body { flex:1; min-width:0; }
+  .link-title {
+    font-size:14px; font-weight:500; color:var(--text); line-height:1.45; margin-bottom:4px;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+  }
+  .link-domain { font-size:11px; color:var(--muted); margin-bottom:4px; }
+  .link-meta { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .link-age { font-size:10px; color:#3a3a3e; }
+  .now-badge {
+    font-size:9px; font-weight:700; background:var(--accent-bg); color:var(--accent);
+    border-radius:4px; padding:1px 5px; letter-spacing:0.06em;
+  }
+  .item-actions { display:flex; flex-direction:column; gap:5px; flex-shrink:0; }
+  .mini-btn {
+    background:none; border:1px solid var(--border); color:var(--muted);
+    border-radius:6px; font-size:10px; font-weight:700; padding:4px 8px;
+    cursor:pointer; font-family:var(--font); white-space:nowrap; transition:all 0.12s;
+  }
+  .mini-btn.green { border-color:var(--green); color:var(--green); }
+  .mini-btn:active { background:var(--surface2); }
+
+  /* MODAL */
+  .overlay {
+    position:fixed; inset:0; background:rgba(0,0,0,0.7);
+    z-index:200; display:flex; align-items:flex-end; justify-content:center;
+    opacity:0; pointer-events:none; transition:opacity 0.2s;
+  }
+  .overlay.open { opacity:1; pointer-events:all; }
+  .modal {
+    width:100%; max-width:480px; background:var(--surface);
+    border-radius:20px 20px 0 0; border-top:1px solid var(--border);
+    padding:20px 16px 44px;
+    transform:translateY(100%); transition:transform 0.25s cubic-bezier(.32,.72,0,1);
+  }
+  .overlay.open .modal { transform:translateY(0); }
+  .modal-handle { width:36px; height:4px; background:var(--border); border-radius:2px; margin:0 auto 18px; }
+  .modal-title { font-size:15px; font-weight:700; margin-bottom:16px; }
+
+  .form-row { margin-bottom:12px; }
+  .form-label { font-size:10px; font-weight:700; color:var(--muted); letter-spacing:0.1em; text-transform:uppercase; margin-bottom:5px; }
+  .form-input {
+    width:100%; background:var(--bg); border:1px solid var(--faint);
+    border-radius:9px; color:var(--text); padding:10px 12px;
+    font-size:14px; outline:none; font-family:var(--font);
+  }
+  .form-input:focus { border-color:var(--accent); }
+  .form-input::placeholder { color:var(--muted); }
+  .type-row { display:flex; gap:6px; flex-wrap:wrap; }
+  .type-chip {
+    padding:6px 12px; border-radius:8px; border:1px solid var(--border);
+    background:none; color:var(--muted); font-size:12px; font-weight:600;
+    cursor:pointer; font-family:var(--font); transition:all 0.15s;
+  }
+  .type-chip.selected { border-color:var(--accent); background:var(--accent-bg); color:var(--accent); }
+  .save-btn {
+    width:100%; background:var(--accent); border:none; border-radius:11px;
+    color:#fff; padding:13px; font-size:14px; font-weight:700;
+    font-family:var(--font); cursor:pointer; margin-top:6px;
+  }
+
+  /* DETAIL */
+  .detail-link {
+    display:block; padding:12px; background:var(--surface2);
+    border-radius:10px; border:1px solid var(--border);
+    color:var(--accent); font-size:12px; word-break:break-all;
+    text-decoration:none; margin-bottom:14px; line-height:1.5;
+  }
+  .detail-note-area {
+    width:100%; background:var(--bg); border:1px solid var(--faint);
+    border-radius:9px; color:var(--text); padding:10px 12px; font-size:14px;
+    line-height:1.8; resize:none; outline:none; min-height:70px; font-family:var(--font);
+  }
+  .detail-note-area:focus { border-color:var(--accent); }
+  .detail-note-area::placeholder { color:#333; }
+
+  /* TOAST */
+  .toast {
+    position:fixed; bottom:80px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:22px; padding:9px 18px; font-size:13px; font-weight:500;
+    z-index:300; opacity:0; transition:all 0.25s; pointer-events:none; white-space:nowrap;
+  }
+  .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+  /* CTX */
+  .ctx-menu {
+    position:fixed; background:var(--surface); border:1px solid var(--border);
+    border-radius:12px; padding:5px; z-index:250; min-width:150px;
+    box-shadow:0 8px 24px rgba(0,0,0,0.4);
+    opacity:0; pointer-events:none; transform:scale(0.95); transition:all 0.15s;
+  }
+  .ctx-menu.open { opacity:1; pointer-events:all; transform:scale(1); }
+  .ctx-item {
+    display:flex; align-items:center; gap:9px;
+    padding:9px 12px; border-radius:8px; cursor:pointer;
+    font-size:13px; color:var(--text); border:none; background:none;
+    width:100%; font-family:var(--font); text-align:left;
+  }
+  .ctx-item:active { background:var(--surface2); }
+  .ctx-item.danger { color:var(--red); }
+  .ctx-sep { height:1px; background:var(--border); margin:3px 0; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- HOME -->
+  <div class="view active" id="viewHome">
+    <div class="header">
+      <div class="app-title">Link<span>y</span></div>
+      <button class="add-fab" onclick="openAdd()">＋</button>
+    </div>
+    <div class="now-wrap">
+      <div class="now-label"><span class="now-dot"></span>NOW</div>
+      <div id="nowCard"></div>
+    </div>
+    <div class="queue-wrap">
+      <div class="queue-header">
+        <div class="queue-label">QUEUE <span class="count-badge" id="queueCountBadge">0</span></div>
+        <button class="see-all-btn" onclick="showView('viewQueue')">すべて見る →</button>
+      </div>
+      <div class="card" id="queueMini"></div>
+    </div>
+    <div class="done-simple-row" onclick="showView('viewDone')">
+      <span class="queue-label">DONE</span>
+      <span class="see-all-btn">見る →</span>
+    </div>
+  </div>
+
+  <!-- QUEUE VIEW -->
+  <div class="view" id="viewQueue">
+    <div class="sub-header">
+      <button class="back-btn" onclick="showView('viewHome')">← ホーム</button>
+      <div class="view-title">Queue</div>
+      <button class="icon-btn" onclick="openAdd()">＋</button>
+    </div>
+    <div class="list-card" id="queueList" style="margin-top:14px"></div>
+  </div>
+
+  <!-- DONE VIEW -->
+  <div class="view" id="viewDone">
+    <div class="sub-header">
+      <button class="back-btn" onclick="showView('viewHome')">← ホーム</button>
+      <div class="view-title">Done</div>
+    </div>
+    <div class="list-card" id="doneList" style="margin-top:14px"></div>
+  </div>
+
+</div>
+
+<!-- ADD/EDIT MODAL -->
+<div class="overlay" id="addOverlay" onclick="closeAdd(event)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modalTitle">リンクを追加</div>
+    <div class="form-row">
+      <div class="form-label">URL</div>
+      <input class="form-input" type="url" id="formUrl" placeholder="https://..." oninput="onUrlInput()">
+    </div>
+    <div class="form-row">
+      <div class="form-label">タイトル</div>
+      <input class="form-input" type="text" id="formTitle" placeholder="ページのタイトル">
+    </div>
+    <button class="save-btn" onclick="saveLink()">保存</button>
+  </div>
+</div>
+
+<!-- DETAIL MODAL -->
+<div class="overlay" id="detailOverlay" onclick="closeDetail(event)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div style="margin-bottom:14px">
+      <div style="font-size:16px;font-weight:700;line-height:1.5;margin-bottom:10px" id="detailTitle"></div>
+      <a class="detail-link" id="detailUrl" target="_blank" rel="noopener"></a>
+      <div id="detailAgeWrap" style="font-size:11px;color:var(--muted);margin-bottom:12px"></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="save-btn" id="detailNowBtn"  onclick="setNowFromDetail()" style="flex:1">⚡ Nowにする</button>
+      <button class="save-btn" id="detailDoneBtn" onclick="doneFromDetail()"   style="flex:1;background:var(--green)">読んだ</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="save-btn" onclick="editFromDetail()" style="flex:1;background:var(--surface);color:var(--muted);border:1px solid var(--border)">✏️ 編集</button>
+      <button class="save-btn" onclick="deleteFromDetail()" style="flex:1;background:none;color:var(--red);border:1px solid rgba(224,108,108,0.3)">🗑 削除</button>
+    </div>
+  </div>
+</div>
+
+<!-- CTX MENU -->
+<div class="ctx-menu" id="ctxMenu">
+  <button class="ctx-item" id="ctxNowBtn" onclick="ctxSetNow()">⚡ Nowにする</button>
+  <button class="ctx-item" onclick="ctxDone()">読んだ</button>
+  <button class="ctx-item" onclick="ctxEdit()">✏️ 編集</button>
+  <button class="ctx-item" onclick="ctxOpen()">🔗 開く</button>
+  <div class="ctx-sep"></div>
+  <button class="ctx-item danger" onclick="ctxDelete()">🗑 削除</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const STORE_KEY = 'linky_v2';
+const TYPE_INFO = {
+  article:{ label:'📄 記事',  dot:'#7c73ff' },
+  video:  { label:'🎬 動画',  dot:'#6c9fe0' },
+  tool:   { label:'🛠 ツール', dot:'#84c4a0' },
+  ref:    { label:'📌 参考',  dot:'#f5c842' },
+  other:  { label:'🗂 その他', dot:'#555'    },
+};
+
+let links = [], editingId=null, detailId=null, ctxId=null, selectedType='article', queueFilter='all';
+
+function load(){ try{ links=JSON.parse(localStorage.getItem(STORE_KEY))||[]; }catch{ links=[]; } }
+function save(){ localStorage.setItem(STORE_KEY, JSON.stringify(links)); }
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+
+function seed(){
+  if(links.length) return;
+  const t=Date.now();
+  links=[
+    {id:uid(),url:'https://web.dev/articles/css-cascade-layers', title:'CSS Cascade Layers の完全ガイド',         type:'article',note:'CSSアーキテクチャの参考に',status:'now',  addedAt:t-86400000*3},
+    {id:uid(),url:'https://github.com/pmndrs/zustand',           title:'zustand – 小さくてシンプルなReact状態管理',type:'tool',  note:'Jotaiと比較する',        status:'queue',addedAt:t-86400000*2},
+    {id:uid(),url:'https://youtube.com/watch?v=figma-vars',      title:'Figma Variables 深堀り解説 2024',           type:'video', note:'',                       status:'queue',addedAt:t-86400000  },
+    {id:uid(),url:'https://developer.mozilla.org/ja/docs/Web/API/Intersection_Observer_API',title:'Intersection Observer API – MDN',type:'ref',note:'スクロールアニメに',status:'queue',addedAt:t-3600000*4},
+    {id:uid(),url:'https://uxdesign.cc/microcopy',               title:'良いマイクロコピーを書くための7つの法則',    type:'article',note:'',                       status:'done', addedAt:t-86400000*5},
+    {id:uid(),url:'https://svelte.dev/blog/svelte-5',            title:'Svelte 5 リリースノート',                   type:'article',note:'',                       status:'done', addedAt:t-86400000*8},
+  ];
+  save();
+}
+
+function getDomain(url){ try{return new URL(url).hostname.replace('www.','')}catch{return url} }
+function relTime(ts){
+  const d=Date.now()-ts;
+  if(d<60000)      return 'たった今';
+  if(d<3600000)    return Math.floor(d/60000)+'分前';
+  if(d<86400000)   return Math.floor(d/3600000)+'時間前';
+  if(d<86400000*7) return Math.floor(d/86400000)+'日前';
+  return new Date(ts).toLocaleDateString('ja-JP',{month:'short',day:'numeric'});
+}
+function daysSince(ts){
+  const d=Math.floor((Date.now()-ts)/86400000);
+  return d===0?'今日保存':'保存から '+d+' 日';
+}
+function esc(s=''){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// VIEWS
+function showView(id){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0,0);
+  if(id==='viewQueue') renderQueueList();
+  if(id==='viewDone')  renderDoneList();
+}
+
+// HOME
+function renderHome(){ renderNow(); renderQueueMini(); }
+
+function renderNow(){
+  const now=links.find(l=>l.status==='now');
+  const el=document.getElementById('nowCard');
+  if(!now){
+    const qLen=links.filter(l=>l.status==='queue').length;
+    el.innerHTML=`<div class="now-empty">
+      <div class="now-empty-icon">📭</div>
+      <div class="now-empty-text">Nowがありません</div>
+      <div class="now-empty-sub">${qLen?'Queueから選んでセットしましょう':'リンクを追加してみましょう'}</div>
+    </div>`;
+    return;
+  }
+  el.innerHTML=`<div class="now-card">
+    <div class="now-card-body">
+      <div class="now-title">${esc(now.title||now.url)}</div>
+      <div class="now-domain">${getDomain(now.url)}</div>
+      <div class="now-age"><span>⏱</span><span class="now-age-num">${daysSince(now.addedAt)}</span></div>
+    </div>
+    <div class="now-actions">
+      <button class="now-action-btn primary" onclick="window.open(${JSON.stringify(now.url)},'_blank','noopener')">読む</button>
+      <button class="now-action-btn done-btn" onclick="markDoneNow()">読んだ</button>
+      <button class="now-action-btn detail-btn" onclick="openDetail('${now.id}')">…</button>
+    </div>
+  </div>`;
+}
+
+function renderQueueMini(){
+  const queue=links.filter(l=>l.status==='queue').sort((a,b)=>b.addedAt-a.addedAt);
+  document.getElementById('queueCountBadge').textContent=queue.length;
+  const el=document.getElementById('queueMini');
+  if(!queue.length){
+    el.innerHTML=`<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px">キューは空です</div>`;
+    return;
+  }
+  const shown=queue.slice(0,4);
+  el.innerHTML=shown.map(l=>{
+    return `<div class="queue-mini-item" onclick="openDetail('${l.id}')" oncontextmenu="showCtx(event,'${l.id}')">
+      <span class="mini-title">${esc(l.title||l.url)}</span>
+      <span class="mini-age">${relTime(l.addedAt)}</span>
+      <button class="set-now-btn" onclick="event.stopPropagation();setNow('${l.id}')">Now</button>
+    </div>`;
+  }).join('')+
+  (queue.length>4
+    ?`<button class="add-row-btn" onclick="showView('viewQueue')"><span class="add-plus">→</span>他 ${queue.length-4} 件</button>`
+    :`<button class="add-row-btn" onclick="openAdd()"><span class="add-plus">＋</span>追加する</button>`
+  );
+}
+
+// QUEUE LIST
+function renderQueueList(){
+  const filtered=links.filter(l=>l.status==='queue'||l.status==='now').sort((a,b)=>b.addedAt-a.addedAt);
+  const el=document.getElementById('queueList');
+  if(!filtered.length){
+    el.innerHTML=`<div style="padding:32px;text-align:center;color:var(--muted);font-size:13px">リンクがありません</div>`;
+    return;
+  }
+  el.innerHTML=filtered.map(l=>{
+    const isNow=l.status==='now';
+    return `<div class="link-item${isNow?' is-now':''}" onclick="openDetail('${l.id}')" oncontextmenu="showCtx(event,'${l.id}')">
+      <div class="link-body">
+        <div class="link-title">${esc(l.title||l.url)}</div>
+        <div class="link-domain">${getDomain(l.url)}</div>
+        <div class="link-meta">
+          ${isNow?'<span class="now-badge">NOW</span>':''}
+          <span class="link-age">${relTime(l.addedAt)}</span>
+        </div>
+      </div>
+      <div class="item-actions">
+        ${!isNow?`<button class="mini-btn" onclick="event.stopPropagation();setNow('${l.id}')">⚡ Now</button>`:''}
+        <button class="mini-btn green" onclick="event.stopPropagation();markDone('${l.id}')">読んだ</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// DONE LIST
+function renderDoneList(){
+  const done=links.filter(l=>l.status==='done').sort((a,b)=>b.addedAt-a.addedAt);
+  const el=document.getElementById('doneList');
+  if(!done.length){
+    el.innerHTML=`<div style="padding:32px;text-align:center;color:var(--muted);font-size:13px">まだありません</div>`;
+    return;
+  }
+  el.innerHTML=done.map(l=>{
+    return `<div class="link-item" style="opacity:0.55" onclick="openDetail('${l.id}')" oncontextmenu="showCtx(event,'${l.id}')">
+      <div class="link-body">
+        <div class="link-title" style="text-decoration:line-through;color:#3a3a3e">${esc(l.title||l.url)}</div>
+        <div class="link-domain">${getDomain(l.url)}</div>
+        <div class="link-meta"><span class="link-age">${relTime(l.addedAt)}</span></div>
+      </div>
+      <div class="item-actions">
+        <button class="mini-btn" onclick="event.stopPropagation();undoDone('${l.id}')">↩ 戻す</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ACTIONS
+function setNow(id){
+  links.forEach(l=>{ if(l.status==='now') l.status='queue'; });
+  const l=links.find(x=>x.id===id);
+  if(l) l.status='now';
+  save(); renderHome();
+  showToast('⚡ Nowにセットしました');
+}
+function markDoneNow(){
+  const l=links.find(x=>x.status==='now');
+  if(!l) return;
+  l.status='done';
+  const next=links.filter(x=>x.status==='queue').sort((a,b)=>b.addedAt-a.addedAt)[0];
+  if(next){ next.status='now'; showToast('✅ 読んだ！次の記事をセットしました'); }
+  else showToast('✅ 読んだ！');
+  save(); renderHome();
+}
+function markDone(id){
+  const l=links.find(x=>x.id===id);
+  if(!l) return;
+  if(l.status==='now'){
+    const next=links.filter(x=>x.status==='queue').sort((a,b)=>b.addedAt-a.addedAt)[0];
+    if(next){ next.status='now'; }
+  }
+  l.status='done';
+  save(); renderHome();
+  const cv=document.querySelector('.view.active')?.id;
+  if(cv==='viewQueue') renderQueueList();
+  showToast('✅ 読んだ！');
+}
+function undoDone(id){
+  const l=links.find(x=>x.id===id);
+  if(!l) return;
+  l.status='queue';
+  save(); renderDoneList();
+  showToast('↩ キューに戻しました');
+}
+
+// ADD / EDIT
+function openAdd(prefill){
+  editingId=null;
+  document.getElementById('modalTitle').textContent='リンクを追加';
+  document.getElementById('formUrl').value=prefill?.url||'';
+  document.getElementById('formTitle').value=prefill?.title||'';
+  document.getElementById('addOverlay').classList.add('open');
+  setTimeout(()=>document.getElementById('formUrl').focus(),300);
+}
+function closeAdd(e){
+  if(e&&e.target!==document.getElementById('addOverlay')) return;
+  document.getElementById('addOverlay').classList.remove('open');
+}
+function onUrlInput(){}
+function saveLink(){
+  const url=document.getElementById('formUrl').value.trim();
+  const title=document.getElementById('formTitle').value.trim();
+  if(!url){ showToast('URLを入力してください'); return; }
+  if(editingId){
+    const l=links.find(x=>x.id===editingId);
+    if(l){ l.url=url; l.title=title||url; }
+    showToast('更新しました');
+  } else {
+    const hasNow=links.some(x=>x.status==='now');
+    links.unshift({id:uid(),url,title:title||url,status:hasNow?'queue':'now',addedAt:Date.now()});
+    showToast('追加しました 🔗');
+  }
+  save(); renderHome();
+  const cv=document.querySelector('.view.active')?.id;
+  if(cv==='viewQueue') renderQueueList();
+  document.getElementById('addOverlay').classList.remove('open');
+}
+
+// DETAIL
+function openDetail(id){
+  const l=links.find(x=>x.id===id);
+  if(!l) return;
+  detailId=id;
+  document.getElementById('detailTitle').textContent=l.title||l.url;
+  const ua=document.getElementById('detailUrl');
+  ua.href=l.url; ua.textContent=l.url;
+  document.getElementById('detailAgeWrap').textContent=daysSince(l.addedAt);
+
+  const nb=document.getElementById('detailNowBtn'), db=document.getElementById('detailDoneBtn');
+  nb.style.display=''; db.style.display='';
+  if(l.status==='now'){
+    nb.style.display='none';
+    db.textContent='読んだ'; db.style.background='var(--green)';
+  } else if(l.status==='done'){
+    nb.textContent='↩ キューに戻す'; nb.style.background='var(--muted)';
+    db.style.display='none';
+  } else {
+    nb.textContent='⚡ Nowにする'; nb.style.background='var(--accent)';
+    db.textContent='読んだ'; db.style.background='var(--green)';
+  }
+  document.getElementById('detailOverlay').classList.add('open');
+}
+function closeDetail(e){
+  if(e&&e.target!==document.getElementById('detailOverlay')) return;
+  document.getElementById('detailOverlay').classList.remove('open');
+}
+function setNowFromDetail(){
+  const l=links.find(x=>x.id===detailId);
+  if(!l) return;
+  if(l.status==='done'){ l.status='queue'; save(); renderHome(); showToast('キューに戻しました'); }
+  else setNow(detailId);
+  document.getElementById('detailOverlay').classList.remove('open');
+}
+function doneFromDetail(){ markDone(detailId); document.getElementById('detailOverlay').classList.remove('open'); }
+function editFromDetail(){
+  const l=links.find(x=>x.id===detailId);
+  if(!l) return;
+  document.getElementById('detailOverlay').classList.remove('open');
+  editingId=detailId;
+  document.getElementById('modalTitle').textContent='編集';
+  document.getElementById('formUrl').value=l.url;
+  document.getElementById('formTitle').value=l.title;
+  document.getElementById('addOverlay').classList.add('open');
+}
+function deleteFromDetail(){
+  links=links.filter(x=>x.id!==detailId);
+  save(); renderHome();
+  const cv=document.querySelector('.view.active')?.id;
+  if(cv==='viewQueue') renderQueueList();
+  if(cv==='viewDone')  renderDoneList();
+  document.getElementById('detailOverlay').classList.remove('open');
+  showToast('削除しました');
+}
+
+// CTX
+function showCtx(e,id){
+  e.preventDefault(); e.stopPropagation(); ctxId=id;
+  const l=links.find(x=>x.id===id);
+  document.getElementById('ctxNowBtn').textContent=l?.status==='now'?'⬇ キューに戻す':'⚡ Nowにする';
+  const menu=document.getElementById('ctxMenu');
+  menu.style.top=Math.min(e.clientY,window.innerHeight-180)+'px';
+  menu.style.left=Math.min(e.clientX,window.innerWidth-160)+'px';
+  menu.classList.add('open');
+  setTimeout(()=>document.addEventListener('click',hideCtx,{once:true}),10);
+}
+function hideCtx(){ document.getElementById('ctxMenu').classList.remove('open'); }
+function ctxSetNow(){ const l=links.find(x=>x.id===ctxId); if(l?.status==='now'){l.status='queue';save();renderHome();}else setNow(ctxId); hideCtx(); }
+function ctxDone()   { markDone(ctxId); hideCtx(); }
+function ctxEdit()   { const l=links.find(x=>x.id===ctxId); if(l){editingId=ctxId;openAdd(l);editingId=ctxId;} hideCtx(); }
+function ctxOpen()   { const l=links.find(x=>x.id===ctxId); if(l) window.open(l.url,'_blank','noopener'); hideCtx(); }
+function ctxDelete() { links=links.filter(x=>x.id!==ctxId); save(); renderHome(); renderQueueList(); showToast('削除しました'); hideCtx(); }
+
+// TOAST
+let toastTimer;
+function showToast(msg){ const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.classList.remove('show'),2200); }
+
+// SHARE TARGET
+function checkShareTarget(){ const p=new URLSearchParams(location.search); const url=p.get('url')||p.get('text')||''; const title=p.get('title')||''; if(url.startsWith('http')){ history.replaceState({},'',location.pathname); openAdd({url,title}); } }
+
+// INIT
+load(); seed(); renderHome(); checkShareTarget();
+</script>
+
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/linky/sw.js', { scope: '/linky/' }).catch(err => {
+    console.warn('Service Worker registration failed:', err);
+  });
+}
+</script>
+</body>
+</html>
