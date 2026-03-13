@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Saving</title>
+</head>
+
+<body>
+
+<script>
+
+async function getTitle(url){
+
+try{
+
+const res = await fetch(
+"https://api.microlink.io/?url="+encodeURIComponent(url)
+)
+
+const data = await res.json()
+
+return data.data.title
+
+}catch(e){}
+
+return null
+}
+
+async function saveShare(){
+
+const params = new URLSearchParams(location.search)
+
+const url = params.get("url")
+let title = params.get("title")
+
+if(!title && url){
+const fetched = await getTitle(url)
+if(fetched) title = fetched
+}
+
+const link={
+title:title||url,
+url:url,
+time:Date.now()
+}
+
+let links=JSON.parse(localStorage.getItem("links")||"[]")
+
+links.unshift(link)
+
+localStorage.setItem("links",JSON.stringify(links))
+
+location.href="/"
+
+}
+
+saveShare()
+
+</script>
+
+</body>
+</html>
