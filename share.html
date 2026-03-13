@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Saving…</title>
+</head>
+<body>
+<script>
+
+async function getTitle(url) {
+  try {
+    const res = await fetch(
+      "https://api.microlink.io/?url=" + encodeURIComponent(url)
+    )
+    const data = await res.json()
+    if (data.data && data.data.title) {
+      return data.data.title
+    }
+  } catch(e) {}
+  return null
+}
+
+async function saveShare() {
+  const params = new URLSearchParams(location.search)
+
+  const sharedUrl = params.get("url")
+  let title = params.get("title")
+
+  if (!title && sharedUrl) {
+    const fetchedTitle = await getTitle(sharedUrl)
+    if (fetchedTitle) title = fetchedTitle
+  }
+
+  const link = {
+    title: title || sharedUrl,
+    url: sharedUrl,
+    time: Date.now()
+  }
+
+  let links = JSON.parse(localStorage.getItem("links") || "[]")
+  links.unshift(link)
+  localStorage.setItem("links", JSON.stringify(links))
+
+  location.href = "/"
+}
+
+saveShare()
+
+</script>
+</body>
+</html>
